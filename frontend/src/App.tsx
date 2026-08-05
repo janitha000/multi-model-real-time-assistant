@@ -6,8 +6,10 @@ import {
 } from "./components/CameraPreview";
 import { SessionControls } from "./components/SessionControls";
 import { StatusBar } from "./components/StatusBar";
+import { StepPanel } from "./components/StepPanel";
 import { Transcript } from "./components/Transcript";
 import { LiveVoiceClient, type TranscriptEntry } from "./live/client";
+import { emptyStepPanel, type StepPanelState } from "./live/toolsBridge";
 import {
   captureJpegFromVideo,
   startCameraStream,
@@ -32,6 +34,7 @@ export default function App() {
   const [continuous, setContinuous] = useState(false);
   const [lastSentAt, setLastSentAt] = useState<number | null>(null);
   const [sendingFrame, setSendingFrame] = useState(false);
+  const [stepPanel, setStepPanel] = useState<StepPanelState>(emptyStepPanel);
 
   const upsertTranscript = useCallback((entry: TranscriptEntry) => {
     setEntries((prev) => {
@@ -102,6 +105,7 @@ export default function App() {
     setError(null);
     setEntries([]);
     setLastSentAt(null);
+    setStepPanel(emptyStepPanel());
     try {
       const cam = await startCameraStream();
       cameraStreamRef.current = cam;
@@ -112,6 +116,7 @@ export default function App() {
         onStatus: setStatus,
         onError: setError,
         onTranscript: upsertTranscript,
+        onStepPanel: setStepPanel,
       });
       clientRef.current = client;
       await client.start(payload);
@@ -135,6 +140,7 @@ export default function App() {
       setActive(false);
       setStatus("Idle");
       setLastSentAt(null);
+      setStepPanel(emptyStepPanel());
     } finally {
       setBusy(false);
     }
@@ -151,11 +157,11 @@ export default function App() {
   return (
     <div className="app">
       <header className="hero">
-        <p className="eyebrow">Phase 2 · Vision + Voice</p>
+        <p className="eyebrow">Phase 3 · Voice + Vision + Tools</p>
         <h1>Assembly Assistant</h1>
         <p className="lede">
-          Low-latency voice coaching with workbench stills. Tap Look to send a
-          JPEG keyframe, or enable continuous ~1 FPS while you assemble.
+          Guided assembly with live voice, workbench stills, and kit manuals
+          loaded through Gemini tools — try the Desk Lamp Mini kit.
         </p>
       </header>
 
@@ -166,15 +172,18 @@ export default function App() {
           onStart={() => void onStart()}
           onStop={() => void onStop()}
         />
-        <CameraPreview
-          ref={cameraRef}
-          stream={cameraStream}
-          lastSentAt={lastSentAt}
-          continuous={continuous}
-          onContinuousChange={setContinuous}
-          onLook={onLook}
-          lookDisabled={!active || busy || sendingFrame}
-        />
+        <div className="workspace">
+          <CameraPreview
+            ref={cameraRef}
+            stream={cameraStream}
+            lastSentAt={lastSentAt}
+            continuous={continuous}
+            onContinuousChange={setContinuous}
+            onLook={onLook}
+            lookDisabled={!active || busy || sendingFrame}
+          />
+          <StepPanel state={stepPanel} />
+        </div>
         <StatusBar status={status} error={error} />
         <Transcript entries={entries} />
       </main>

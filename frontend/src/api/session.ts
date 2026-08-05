@@ -4,6 +4,7 @@ export type SessionPayload = {
   api_version: string;
   expire_time?: string;
   new_session_expire_time?: string;
+  tools?: unknown[];
 };
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";

@@ -4,6 +4,12 @@ import { startMicCapture, type MicCapture } from "../audio/capture";
 import { PcmPlayer } from "../audio/playback";
 import type { SessionPayload } from "../api/session";
 import type { JpegFrame } from "../vision/frames";
+import {
+  deriveStepPanel,
+  emptyStepPanel,
+  invokeTool,
+  type StepPanelState,
+} from "./toolsBridge";
 
 export type TranscriptEntry = {
   id: string;
@@ -16,6 +22,7 @@ export type LiveClientCallbacks = {
   onError?: (message: string) => void;
   /** Upsert by id so streaming deltas update one bubble. */
   onTranscript?: (entry: TranscriptEntry) => void;
+  onStepPanel?: (state: StepPanelState) => void;
 };
 
 function extractInlineAudioBase64(message: unknown): string | null {
@@ -44,6 +51,7 @@ export class LiveVoiceClient {
   private turn = 0;
   private userText = "";
   private assistantText = "";
+  private stepPanel: StepPanelState = emptyStepPanel();
 
   constructor(private readonly callbacks: LiveClientCallbacks = {}) {}
 
@@ -57,6 +65,8 @@ export class LiveVoiceClient {
 
   async start(payload: SessionPayload): Promise<void> {
     this.callbacks.onStatus?.("Connecting to Gemini Live…");
+    this.stepPanel = emptyStepPanel();
+    this.callbacks.onStepPanel?.(this.stepPanel);
     await this.player.resume();
 
     const ai = new GoogleGenAI({
@@ -73,13 +83,14 @@ export class LiveVoiceClient {
         contextWindowCompression: {
           slidingWindow: {},
         },
+        tools: (payload.tools as never[]) ?? [],
       },
       callbacks: {
         onopen: () => {
           this.callbacks.onStatus?.("Live session open");
         },
         onmessage: (message) => {
-          this.handleMessage(message);
+          void this.handleMessage(message);
         },
         onerror: (e) => {
           this.callbacks.onError?.(e.message || "Live WebSocket error");
@@ -109,10 +120,10 @@ export class LiveVoiceClient {
     });
 
     this.session.sendRealtimeInput({
-      text: "Please greet me briefly and ask what kit I am assembling. I may send camera stills of my workbench — use them when available.",
+      text: "Please greet me, list available kits with your tools, and ask if I am assembling the Desk Lamp Mini kit.",
     });
 
-    this.callbacks.onStatus?.("Listening — speak or tap Look");
+    this.callbacks.onStatus?.("Listening — speak, Look, or ask for a step");
   }
 
   /** Send a JPEG keyframe for visual context (Gemini Live video input). */
@@ -148,8 +159,62 @@ export class LiveVoiceClient {
     }
   }
 
-  private handleMessage(message: unknown): void {
+  private async handleToolCall(message: {
+    toolCall?: {
+      functionCalls?: Array<{
+        id?: string;
+        name?: string;
+        args?: Record<string, unknown>;
+      }>;
+    };
+  }): Promise<void> {
+    const calls = message.toolCall?.functionCalls ?? [];
+    if (!calls.length || !this.session) return;
+
+    this.callbacks.onStatus?.(`Running tool: ${calls.map((c) => c.name).join(", ")}`);
+
+    const functionResponses = [];
+    for (const fc of calls) {
+      const name = fc.name || "unknown";
+      try {
+        const { result } = await invokeTool(name, fc.args ?? {});
+        this.stepPanel = deriveStepPanel(this.stepPanel, name, result);
+        this.callbacks.onStepPanel?.(this.stepPanel);
+        functionResponses.push({
+          id: fc.id,
+          name,
+          response: { result },
+        });
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : "tool failed";
+        functionResponses.push({
+          id: fc.id,
+          name,
+          response: { error: detail },
+        });
+        this.callbacks.onError?.(detail);
+      }
+    }
+
+    try {
+      this.session.sendToolResponse({ functionResponses });
+      this.callbacks.onStatus?.("Listening — speak, Look, or ask for a step");
+    } catch (err) {
+      this.callbacks.onError?.(
+        err instanceof Error ? err.message : "Failed to send tool response",
+      );
+    }
+  }
+
+  private async handleMessage(message: unknown): Promise<void> {
     const msg = message as {
+      toolCall?: {
+        functionCalls?: Array<{
+          id?: string;
+          name?: string;
+          args?: Record<string, unknown>;
+        }>;
+      };
       serverContent?: {
         interrupted?: boolean;
         turnComplete?: boolean;
@@ -157,6 +222,10 @@ export class LiveVoiceClient {
         outputTranscription?: { text?: string };
       };
     };
+
+    if (msg.toolCall?.functionCalls?.length) {
+      await this.handleToolCall(msg);
+    }
 
     if (msg.serverContent?.interrupted) {
       this.player.interrupt();
@@ -169,7 +238,6 @@ export class LiveVoiceClient {
 
     const inText = msg.serverContent?.inputTranscription?.text;
     if (inText) {
-      // API may send deltas or cumulative snippets; append deltas.
       this.userText += inText;
       this.callbacks.onTranscript?.({
         id: this.userId(),
@@ -205,6 +273,8 @@ export class LiveVoiceClient {
     }
     this.session = null;
     await this.player.close();
+    this.stepPanel = emptyStepPanel();
+    this.callbacks.onStepPanel?.(this.stepPanel);
     this.callbacks.onStatus?.("Idle");
   }
 }

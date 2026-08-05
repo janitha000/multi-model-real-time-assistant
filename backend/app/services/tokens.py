@@ -6,6 +6,7 @@ from google import genai
 
 from app.config import Settings
 from app.prompts.assembly_coach import ASSEMBLY_COACH_SYSTEM_INSTRUCTION
+from app.tools.definitions import live_tools_config
 
 
 def create_live_ephemeral_token(settings: Settings) -> dict:
@@ -20,6 +21,7 @@ def create_live_ephemeral_token(settings: Settings) -> dict:
     )
 
     model = settings.gemini_live_model
+    tools = live_tools_config()
     live_config = {
         "response_modalities": ["AUDIO"],
         "system_instruction": ASSEMBLY_COACH_SYSTEM_INSTRUCTION,
@@ -28,6 +30,7 @@ def create_live_ephemeral_token(settings: Settings) -> dict:
         "context_window_compression": {
             "sliding_window": {},
         },
+        "tools": tools,
     }
 
     token = client.auth_tokens.create(
@@ -52,4 +55,5 @@ def create_live_ephemeral_token(settings: Settings) -> dict:
         "api_version": "v1alpha",
         "expire_time": (now + timedelta(minutes=30)).isoformat(),
         "new_session_expire_time": (now + timedelta(minutes=2)).isoformat(),
+        "tools": tools,
     }
