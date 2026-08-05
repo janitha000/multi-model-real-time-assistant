@@ -11,7 +11,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Multimodal Real-Time Assembly Assistant",
         version="0.1.0",
-        description="Phase 1: ephemeral Gemini Live session tokens for voice assembly coaching.",
+        description="Phase 2: ephemeral Gemini Live tokens for voice + vision assembly coaching.",
     )
     app.add_middleware(
         CORSMiddleware,
