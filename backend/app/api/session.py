@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
@@ -13,6 +15,7 @@ class SessionResponse(BaseModel):
     api_version: str = "v1alpha"
     expire_time: str | None = None
     new_session_expire_time: str | None = None
+    tools: list[dict[str, Any]] = Field(default_factory=list)
 
 
 @router.post("/session", response_model=SessionResponse)

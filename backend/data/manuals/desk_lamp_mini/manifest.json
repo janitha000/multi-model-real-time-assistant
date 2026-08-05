@@ -1,0 +1,103 @@
+{
+  "id": "desk_lamp_mini",
+  "name": "Desk Lamp Mini Kit",
+  "description": "A beginner DIY desk lamp: base, stem, shade, bulb socket, and cable. No soldering required.",
+  "estimated_minutes": 20,
+  "safety": [
+    "Keep the power cable unplugged until the final safety check.",
+    "Do not touch exposed conductors on the cable ends.",
+    "Use only the included low-voltage LED bulb."
+  ],
+  "parts": [
+    {
+      "id": "BASE-01",
+      "name": "Lamp base",
+      "description": "Weighted circular base with a threaded center socket for the stem.",
+      "used_in_steps": [1]
+    },
+    {
+      "id": "STEM-01",
+      "name": "Stem tube",
+      "description": "Hollow metal tube with threads on both ends. Cable runs inside.",
+      "used_in_steps": [1, 2]
+    },
+    {
+      "id": "SOCK-01",
+      "name": "Bulb socket",
+      "description": "E26/E27 style socket with two screw terminals (L and N) and a top thread for the shade ring.",
+      "used_in_steps": [2, 3]
+    },
+    {
+      "id": "CABLE-01",
+      "name": "Power cable with inline switch",
+      "description": "Two-conductor cable with an inline rocker switch and a wall plug. Free end has stripped leads.",
+      "used_in_steps": [2, 3, 5]
+    },
+    {
+      "id": "SHADE-01",
+      "name": "Lamp shade",
+      "description": "Fabric shade with a metal spider that sits on the socket and locks with the shade ring.",
+      "used_in_steps": [4]
+    },
+    {
+      "id": "RING-01",
+      "name": "Shade ring",
+      "description": "Small threaded ring that secures the shade to the socket.",
+      "used_in_steps": [4]
+    },
+    {
+      "id": "BULB-01",
+      "name": "LED bulb",
+      "description": "Included low-voltage LED bulb. Screw-in only — do not force.",
+      "used_in_steps": [5]
+    },
+    {
+      "id": "SCREW-M4",
+      "name": "M4 set screw",
+      "description": "Short set screw that locks the stem into the base collar.",
+      "used_in_steps": [1]
+    }
+  ],
+  "steps": [
+    {
+      "number": 1,
+      "title": "Attach stem to base",
+      "instructions": "Thread STEM-01 into the center of BASE-01 until snug. Insert SCREW-M4 into the collar hole and tighten gently with the included hex key so the stem cannot rotate.",
+      "parts": ["BASE-01", "STEM-01", "SCREW-M4"],
+      "tip": "If the stem wobbles, back it out half a turn, reseat straight, then retighten the set screw.",
+      "verify": "Stem stands vertical and does not twist by hand."
+    },
+    {
+      "number": 2,
+      "title": "Route cable through stem",
+      "instructions": "Feed the free stripped end of CABLE-01 up through the base hole and through STEM-01 until about 8 cm of cable exits the top of the stem. Keep the inline switch outside the base, on the long plug side.",
+      "parts": ["CABLE-01", "STEM-01"],
+      "tip": "Tape the stripped leads together so they do not snag while pulling.",
+      "verify": "Cable slides freely; switch sits outside the lamp, not trapped under the base."
+    },
+    {
+      "number": 3,
+      "title": "Wire the bulb socket",
+      "instructions": "Screw SOCK-01 onto the top of STEM-01. Loosen the two terminal screws. Attach one cable lead under L and the other under N. Tighten firmly. Tug lightly to confirm the wires stay seated.",
+      "parts": ["SOCK-01", "CABLE-01"],
+      "tip": "Polarity is not critical for this LED kit, but keep strands neat — no whiskers sticking out.",
+      "verify": "Both leads are clamped; no bare copper is visible outside the terminals."
+    },
+    {
+      "number": 4,
+      "title": "Mount the shade",
+      "instructions": "Place SHADE-01 so the spider rests on the socket shoulder. Thread RING-01 onto the socket and tighten until the shade is secure but not crushed.",
+      "parts": ["SHADE-01", "RING-01", "SOCK-01"],
+      "tip": "Hold the shade level while tightening so it does not sit crooked.",
+      "verify": "Shade is level and does not rattle when you nudge it."
+    },
+    {
+      "number": 5,
+      "title": "Install bulb and safety check",
+      "instructions": "Screw BULB-01 into the socket. Confirm the wall plug is still unplugged. Check that the inline switch is OFF. Only then plug in and flip the switch ON for a quick test. Unplug again if you need to adjust anything.",
+      "parts": ["BULB-01", "CABLE-01"],
+      "tip": "If it does not light, unplug first, then recheck terminal screws from step 3.",
+      "verify": "Lamp lights with switch ON; no buzzing, smoke, or hot spots on the cable."
+    }
+  ]
+}

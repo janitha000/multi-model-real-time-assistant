@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.health import router as health_router
 from app.api.session import router as session_router
+from app.api.tools import router as tools_router
 from app.config import get_settings
 
 
@@ -10,8 +11,8 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
         title="Multimodal Real-Time Assembly Assistant",
-        version="0.1.0",
-        description="Phase 2: ephemeral Gemini Live tokens for voice + vision assembly coaching.",
+        version="0.3.0",
+        description="Phase 3: voice + vision + kit manuals via Gemini Live tools.",
     )
     app.add_middleware(
         CORSMiddleware,
@@ -22,6 +23,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(health_router)
     app.include_router(session_router)
+    app.include_router(tools_router)
     return app
 
 
