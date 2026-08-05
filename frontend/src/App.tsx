@@ -1,17 +1,37 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createSession } from "./api/session";
+import {
+  CameraPreview,
+  type CameraPreviewHandle,
+} from "./components/CameraPreview";
 import { SessionControls } from "./components/SessionControls";
 import { StatusBar } from "./components/StatusBar";
 import { Transcript } from "./components/Transcript";
 import { LiveVoiceClient, type TranscriptEntry } from "./live/client";
+import {
+  captureJpegFromVideo,
+  startCameraStream,
+  startFrameLoop,
+  type CameraStream,
+} from "./vision/frames";
+
+const CONTINUOUS_INTERVAL_MS = 1000;
 
 export default function App() {
   const clientRef = useRef<LiveVoiceClient | null>(null);
+  const cameraRef = useRef<CameraPreviewHandle>(null);
+  const cameraStreamRef = useRef<CameraStream | null>(null);
+  const stopLoopRef = useRef<(() => void) | null>(null);
+
   const [active, setActive] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("Idle");
   const [error, setError] = useState<string | null>(null);
   const [entries, setEntries] = useState<TranscriptEntry[]>([]);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [continuous, setContinuous] = useState(false);
+  const [lastSentAt, setLastSentAt] = useState<number | null>(null);
+  const [sendingFrame, setSendingFrame] = useState(false);
 
   const upsertTranscript = useCallback((entry: TranscriptEntry) => {
     setEntries((prev) => {
@@ -23,17 +43,70 @@ export default function App() {
     });
   }, []);
 
+  const stopCamera = useCallback(() => {
+    stopLoopRef.current?.();
+    stopLoopRef.current = null;
+    cameraStreamRef.current?.stop();
+    cameraStreamRef.current = null;
+    setCameraStream(null);
+    setContinuous(false);
+  }, []);
+
   useEffect(() => {
     return () => {
       void clientRef.current?.stop();
+      stopCamera();
     };
+  }, [stopCamera]);
+
+  const sendLookFrame = useCallback(async (): Promise<boolean> => {
+    const video = cameraRef.current?.getVideo();
+    const client = clientRef.current;
+    if (!video || !client) return false;
+
+    setSendingFrame(true);
+    try {
+      const frame = await captureJpegFromVideo(video);
+      if (!frame) {
+        setError("Could not capture a camera frame yet — wait for the preview.");
+        return false;
+      }
+      const ok = client.sendVideoFrame(frame);
+      if (ok) {
+        setLastSentAt(Date.now());
+        setError(null);
+      }
+      return ok;
+    } finally {
+      setSendingFrame(false);
+    }
   }, []);
+
+  useEffect(() => {
+    stopLoopRef.current?.();
+    stopLoopRef.current = null;
+    if (!active || !continuous || !cameraStream) return;
+
+    stopLoopRef.current = startFrameLoop(CONTINUOUS_INTERVAL_MS, async () => {
+      await sendLookFrame();
+    });
+
+    return () => {
+      stopLoopRef.current?.();
+      stopLoopRef.current = null;
+    };
+  }, [active, continuous, cameraStream, sendLookFrame]);
 
   const onStart = async () => {
     setBusy(true);
     setError(null);
     setEntries([]);
+    setLastSentAt(null);
     try {
+      const cam = await startCameraStream();
+      cameraStreamRef.current = cam;
+      setCameraStream(cam.stream);
+
       const payload = await createSession();
       const client = new LiveVoiceClient({
         onStatus: setStatus,
@@ -44,6 +117,7 @@ export default function App() {
       await client.start(payload);
       setActive(true);
     } catch (err) {
+      stopCamera();
       setError(err instanceof Error ? err.message : "Failed to start session");
       setStatus("Idle");
       setActive(false);
@@ -55,23 +129,33 @@ export default function App() {
   const onStop = async () => {
     setBusy(true);
     try {
+      stopCamera();
       await clientRef.current?.stop();
       clientRef.current = null;
       setActive(false);
       setStatus("Idle");
+      setLastSentAt(null);
     } finally {
       setBusy(false);
     }
   };
 
+  const onLook = () => {
+    void sendLookFrame().then((ok) => {
+      if (ok && !continuous) {
+        clientRef.current?.nudgeAfterLook();
+      }
+    });
+  };
+
   return (
     <div className="app">
       <header className="hero">
-        <p className="eyebrow">Phase 1 · Gemini Live</p>
+        <p className="eyebrow">Phase 2 · Vision + Voice</p>
         <h1>Assembly Assistant</h1>
         <p className="lede">
-          Low-latency voice coaching for hardware assembly. Your mic streams
-          straight to Gemini Live; the API key stays on the server.
+          Low-latency voice coaching with workbench stills. Tap Look to send a
+          JPEG keyframe, or enable continuous ~1 FPS while you assemble.
         </p>
       </header>
 
@@ -81,6 +165,15 @@ export default function App() {
           busy={busy}
           onStart={() => void onStart()}
           onStop={() => void onStop()}
+        />
+        <CameraPreview
+          ref={cameraRef}
+          stream={cameraStream}
+          lastSentAt={lastSentAt}
+          continuous={continuous}
+          onContinuousChange={setContinuous}
+          onLook={onLook}
+          lookDisabled={!active || busy || sendingFrame}
         />
         <StatusBar status={status} error={error} />
         <Transcript entries={entries} />

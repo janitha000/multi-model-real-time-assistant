@@ -3,6 +3,7 @@ import type { Session } from "@google/genai/web";
 import { startMicCapture, type MicCapture } from "../audio/capture";
 import { PcmPlayer } from "../audio/playback";
 import type { SessionPayload } from "../api/session";
+import type { JpegFrame } from "../vision/frames";
 
 export type TranscriptEntry = {
   id: string;
@@ -108,10 +109,43 @@ export class LiveVoiceClient {
     });
 
     this.session.sendRealtimeInput({
-      text: "Please greet me briefly and ask what kit I am assembling.",
+      text: "Please greet me briefly and ask what kit I am assembling. I may send camera stills of my workbench — use them when available.",
     });
 
-    this.callbacks.onStatus?.("Listening — speak to Aria");
+    this.callbacks.onStatus?.("Listening — speak or tap Look");
+  }
+
+  /** Send a JPEG keyframe for visual context (Gemini Live video input). */
+  sendVideoFrame(frame: JpegFrame): boolean {
+    if (!this.session) return false;
+    try {
+      this.session.sendRealtimeInput({
+        video: {
+          data: frame.base64,
+          mimeType: frame.mimeType,
+        },
+      });
+      return true;
+    } catch (err) {
+      this.callbacks.onError?.(
+        err instanceof Error ? err.message : "Failed to send video frame",
+      );
+      return false;
+    }
+  }
+
+  /** Light text cue after an on-demand Look (skip in continuous mode). */
+  nudgeAfterLook(): void {
+    if (!this.session) return;
+    try {
+      this.session.sendRealtimeInput({
+        text: "I just sent a camera still of my workbench. Please use it.",
+      });
+    } catch (err) {
+      this.callbacks.onError?.(
+        err instanceof Error ? err.message : "Failed to send look nudge",
+      );
+    }
   }
 
   private handleMessage(message: unknown): void {

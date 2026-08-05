@@ -1,10 +1,12 @@
 # Multimodal Real-Time Assembly Assistant
 
-Low-latency hardware assembly coach powered by **Gemini Live**. The browser streams mic audio directly to Gemini over WebSocket using an **ephemeral token** minted by a Python FastAPI backend (API key never leaves the server).
+Low-latency hardware assembly coach powered by **Gemini Live**. The browser streams mic audio (and optional camera stills) directly to Gemini over WebSocket using an **ephemeral token** minted by a Python FastAPI backend (API key never leaves the server).
 
-## Phase 1 status
+## Current status — Phase 2 (Vision)
 
-Voice loop only: start session → speak → hear Aria → barge-in interrupt. Camera and assembly tools come in later phases.
+- Voice loop: start session → speak → hear Aria → barge-in interrupt
+- Vision: camera preview, **Look** (on-demand JPEG), optional continuous **~1 FPS**
+- Assembly manuals / tools: Phase 3
 
 ## Tech stack
 
@@ -12,7 +14,7 @@ Voice loop only: start session → speak → hear Aria → barge-in interrupt. C
 |-------|--------|
 | Backend | Python 3.11+, FastAPI, Uvicorn, `google-genai`, Pydantic Settings |
 | Frontend | Vite, React 18, TypeScript, `@google/genai` |
-| Realtime | Gemini Live (PCM 16 kHz in / 24 kHz out), ephemeral tokens (`v1alpha`) |
+| Realtime | Gemini Live (PCM 16 kHz in / 24 kHz out + JPEG frames), ephemeral tokens (`v1alpha`) |
 
 ## Setup
 
@@ -42,16 +44,20 @@ npm install
 npm run dev
 ```
 
-4. Open http://localhost:5173 → **Start session** → allow microphone (Chrome recommended).
+4. Open http://localhost:5173 → **Start session** → allow **microphone + camera** (Chrome recommended).
 
-## Architecture (Phase 1)
+5. Point the camera at your workbench → tap **Look**, or enable **Continuous (~1 FPS)**. Ask Aria what she sees.
+
+## Architecture (Phase 2)
 
 ```text
-Browser (mic PCM) --WSS + ephemeral token--> Gemini Live
-     ^                                         |
-     |                                         +--> audio + transcripts
+Browser (mic PCM + JPEG frames) --WSS + ephemeral token--> Gemini Live
+     ^                                                      |
+     |                                                      +--> audio + transcripts
 POST /api/session (FastAPI mints token with API key)
 ```
+
+Frames are downscaled (max edge 768) JPEG stills — not continuous video understanding.
 
 ## API
 
@@ -61,4 +67,4 @@ POST /api/session (FastAPI mints token with API key)
 ## Notes
 
 - If Live connect fails with a model error, update `GEMINI_LIVE_MODEL` in `backend/.env` to a current Live model from [Google’s Live docs](https://ai.google.dev/gemini-api/docs/live-api).
-- Safari audio capture can be flaky; use Chrome for demos.
+- Prefer Chrome for demos; keep continuous FPS off unless you need it (cost).
